@@ -1,0 +1,35 @@
+{
+  "name": "gravix-aztec-contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dest/index.js",
+  "scripts": {
+    "build": "yarn clean && tsc -b && webpack",
+    "install:noir": "curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash noirup -v 0.16.0-aztec.1",
+    "install:sandbox": "docker pull aztecprotocol/aztec-sandbox:0.8.14",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "start": "serve -p 3000 ./dest",
+    "start:dev": "webpack serve --mode=development",
+    "start:sandbox": "SANDBOX_VERSION=0.8.14 /bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" ",
+    "formatting": "prettier --check ./src && eslint ./src",
+    "formatting:fix": "prettier -w ./src",
+    "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "@aztec/aztec.js": "^0.8.14",
+    "@aztec/circuits.js": "^0.8.14",
+    "@aztec/foundation": "^0.8.14",
+    "@aztec/noir-contracts": "^0.8.14",
+    "@aztec/types": "^0.8.14",
+    "@types/chai": "^4.3.1",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.0.4",
+    "chai": "^4.3.6",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^4.7.4"
+  }
+}
