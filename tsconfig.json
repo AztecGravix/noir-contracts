@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "outDir": "dest",
     "rootDir": "src",
     "target": "es2020",
