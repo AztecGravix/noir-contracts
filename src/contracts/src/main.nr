@@ -14,6 +14,7 @@ contract Vault {
     
     use dep::aztec::{
         abi,
+        log::emit_encrypted_log,
         context::{PrivateContext, PublicContext, Context},
         oracle::{
             get_public_key::get_public_key,
@@ -202,6 +203,13 @@ contract Vault {
         } else {
             storage.usersLastPosId.at(sender).replace(&mut new_pos_id);
         }
+        emit_encrypted_log(
+            &mut context,
+            context.this_address(),
+            storage.usersLastPosId.storage_slot,
+            get_public_key(sender),
+            new_pos_id.serialize()
+        );
 
         let mut position = Position::new(
             new_pos_id.value,
@@ -221,6 +229,13 @@ contract Vault {
 
         // save new position
         storage.positions.at(sender).at(new_pos_id.value as Field).initialize(&mut position, Option::some(sender));
+        emit_encrypted_log(
+            &mut context,
+            context.this_address(),
+            storage.positions.storage_slot,
+            get_public_key(sender),
+            position.serialize()
+        );
 
         1
     }
