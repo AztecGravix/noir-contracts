@@ -12,6 +12,8 @@ struct Market {
 }
 
 global MARKET_SERIALIZED_LEN: Field = 8;
+global HUNDRED_PERCENT: u64 = 1000000000000;
+
 
 fn deserialize(fields: [Field; MARKET_SERIALIZED_LEN]) -> Market {
     Market {

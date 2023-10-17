@@ -26,22 +26,36 @@ struct Position {
 }
 
 global POSITION_SERIALIZED_LEN: Field = 12;
+global LIQUIDATION_THRESHOLD_RATE: u64 = 100000000000;
 
 
 impl Position {
-    pub fn new(owner: Field) -> Self {
+    pub fn new(
+        id: u32,
+        marketIdx: u8,
+        posType: u8,
+        initialCollateral: u120,
+        openFee: u120,
+        openPrice: u120,
+        markPrice: u120,
+        leverage: u32,
+        borrowBaseRatePerHour: u64,
+        liquidationThresholdRate: u64,
+        createdAt: u32,
+        owner: Field
+    ) -> Self {
         Self {
-            id: 0,
-            marketIdx: 0,
-            posType: 0,
-            initialCollateral: 0,
-            openFee: 0,
-            openPrice: 0,
-            markPrice: 0,
-            leverage: 0,
-            borrowBaseRatePerHour: 0,
-            liquidationThresholdRate: 0,
-            createdAt: 0,
+            id: id,
+            marketIdx: marketIdx,
+            posType: posType,
+            initialCollateral: initialCollateral,
+            openFee: openFee,
+            openPrice: openPrice,
+            markPrice: markPrice,
+            leverage: leverage,
+            borrowBaseRatePerHour: borrowBaseRatePerHour,
+            liquidationThresholdRate: liquidationThresholdRate,
+            createdAt: createdAt,
             owner: owner,
             header: NoteHeader::empty()
         }

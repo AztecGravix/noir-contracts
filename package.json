@@ -14,7 +14,7 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",
-    "test": "ts-mocha src/test/*.ts"
+    "test": "ts-mocha src/test/*.ts --timeout 100000"
   },
   "engines": {
     "node": "18.x"

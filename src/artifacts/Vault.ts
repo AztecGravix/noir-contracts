@@ -80,7 +80,16 @@ export class VaultContract extends ContractBase {
     /** market(market_id: field) */
     market: ((market_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** open_position(collateral: integer, leverage: integer, pos_type: integer, market_id: field, market_price: integer, secret_hash: field) */
+    open_position: ((collateral: (bigint | number), leverage: (bigint | number), pos_type: (bigint | number), market_id: FieldLike, market_price: (bigint | number), secret_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** position(user: field, pos_id: field) */
     position: ((user: FieldLike, pos_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** resolve_open_position(to: struct, secret: field) */
+    resolve_open_position: ((to: AztecAddressLike, secret: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** resolve_open_position_test() */
+    resolve_open_position_test: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 }
