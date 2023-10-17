@@ -20,7 +20,9 @@ contract Vault {
             get_public_key::get_public_key,
         },
         note::{
-            note_getter_options::NoteGetterOptions
+            note_getter_options::NoteGetterOptions,
+            note_header::NoteHeader,
+            utils as note_utils
         },
         state_vars::{map::Map, public_state::PublicState, singleton::Singleton, set::Set},
         types::type_serialization::{
@@ -294,4 +296,16 @@ contract Vault {
             0
         }
     }
+
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; 12]) -> [Field; 4] {
+        let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
+        if (storage_slot == 4) {
+            note_utils::compute_note_hash_and_nullifier(PositionSerializationMethods, note_header, preimage)
+        } else if (storage_slot == 5) {
+            note_utils::compute_note_hash_and_nullifier(UserPosIdSerializationMethods, note_header, preimage)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
+        }
+    }
 }
+
