@@ -92,6 +92,9 @@ export class VaultContract extends ContractBase {
     /** compute_note_hash_and_nullifier(contract_address: field, nonce: field, storage_slot: field, preimage: array) */
     compute_note_hash_and_nullifier: ((contract_address: FieldLike, nonce: FieldLike, storage_slot: FieldLike, preimage: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** construct_position(id: integer, collateral: integer, market_id: integer, market_price: integer, pos_type: integer, leverage: integer, owner: field, secret_hash: field) */
+    construct_position: ((id: (bigint | number), collateral: (bigint | number), market_id: (bigint | number), market_price: (bigint | number), pos_type: (bigint | number), leverage: (bigint | number), owner: FieldLike, secret_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** liquidity() */
     liquidity: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -101,7 +104,16 @@ export class VaultContract extends ContractBase {
     /** open_position(id: integer, collateral: integer, leverage: integer, pos_type: integer, market_id: integer, market_price: integer, secret_hash: field) */
     open_position: ((id: (bigint | number), collateral: (bigint | number), leverage: (bigint | number), pos_type: (bigint | number), market_id: (bigint | number), market_price: (bigint | number), secret_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** pending_positions() */
+    pending_positions: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** positions(user: field) */
     positions: ((user: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** resolve_open_position(secret: field) */
+    resolve_open_position: ((secret: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** serialize_pos(note: struct) */
+    serialize_pos: ((note: { id: (bigint | number), marketIdx: (bigint | number), posType: (bigint | number), initialCollateral: (bigint | number), openFee: (bigint | number), openPrice: (bigint | number), markPrice: (bigint | number), leverage: (bigint | number), liquidationThresholdRate: (bigint | number), owner: FieldLike, secret_hash: FieldLike, secret: FieldLike, header: { contract_address: FieldLike, nonce: FieldLike, storage_slot: FieldLike, is_transient: boolean } }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 }

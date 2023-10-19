@@ -23,7 +23,11 @@ impl PositionMap {
     }
 
     pub fn at(self, owner: AztecAddress) -> PositionSet {
-        let derived_storage_slot = dep::std::hash::pedersen([self.storage_slot, owner.address])[0];
+        let derived_storage_slot = self.slot_for(owner);
         PositionSet::new(self.context, owner, derived_storage_slot)
+    }
+
+    pub fn slot_for(self, owner: AztecAddress) -> Field {
+        dep::std::hash::pedersen([self.storage_slot, owner.address])[0]
     }
 }
