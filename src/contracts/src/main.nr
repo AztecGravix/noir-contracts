@@ -37,14 +37,16 @@ contract Vault {
         market::{MARKET_SERIALIZED_LEN, Market, MarketSerializationMethods, HUNDRED_PERCENT},
         position_note::{POSITION_NOTE_SERIALIZED_LEN, PositionNoteSerializationMethods, PositionNote, LIQUIDATION_THRESHOLD_RATE, LEVERAGE_BASE, SCALING_FACTOR, PnlAndLiq},
         safe_u120_serialization::{SAFE_U120_SERIALIZED_LEN, SafeU120SerializationMethods},
-        position_map::{PositionMap}
+        position_map::{PositionMap},
+        user_data::{UserData, UserDataSerializationMethods, USER_DATA_SERIALIZED_LEN}
     };
     struct Storage {
         admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
         markets: Map<PublicState<Market, MARKET_SERIALIZED_LEN>>,
         liquidity: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
         positions: PositionMap,
-        pendingRequests: Set<PositionNote, POSITION_NOTE_SERIALIZED_LEN>
+        pendingRequests: Set<PositionNote, POSITION_NOTE_SERIALIZED_LEN>,
+        users: Map<Singleton<UserData, USER_DATA_SERIALIZED_LEN>> // notes should be added manually to PXE, because we cant handle 2 types of mapping logs at the moment
     }
 
     impl Storage {
@@ -73,7 +75,14 @@ contract Vault {
                 ),
                 // -------------------- PRIVATE ----------------------
                 positions: PositionMap::new(context, 4),
-                pendingRequests: Set::new(context, 5, PositionNoteSerializationMethods)
+                pendingRequests: Set::new(context, 5, PositionNoteSerializationMethods),
+                users: Map::new(
+                    context,
+                    6,
+                    |context, slot| {
+                        Singleton::new(context, slot, UserDataSerializationMethods)
+                    },
+                ),
             }
         }
     }
@@ -107,15 +116,46 @@ contract Vault {
             get_public_key(sender),
             note.serialize()
         );
+
         // todo: increase market OI
         1
     }
 
     #[aztec(private)]
-    fn close_position(position_id: Field) {
+    fn close_position(position_id: Field, close_price: u120) {
         let sender = context.msg_sender();
-        storage.positions.at(AztecAddress::new(sender)).remove(position_id);
+        let position = storage.positions.at(AztecAddress::new(sender)).get_position(position_id);
+        let close_res = pnl_and_liq(position, close_price); // TODO: replace unconstrained
+        storage.positions.at(AztecAddress::new(sender)).remove(position_id)
     }
+
+    // WE CANT USER FULL VERSION BECAUSE OF WEIRD COMPILER BUG ;C
+    // uncomment to get it
+    // #[aztec(private)]
+    // fn close_position_full(position_id: Field, close_price: u120) {
+    //     let sender = context.msg_sender();
+    //     let position = storage.positions.at(AztecAddress::new(sender)).get_position(position_id);
+    //     let close_res = pnl_and_liq(position, close_price); // TODO: replace unconstrained
+    //     let initialized = storage.users.at(sender).is_initialized(Option::some(sender));
+    //     if (initialized) {
+    //         let mut note = storage.users.at(sender).get_note();
+    //         if (close_res.positive) {
+    //             note.profit += close_res.pnl;
+    //         } else {
+    //             note.loss += close_res.pnl;
+    //         }
+    //         storage.users.at(sender).replace(&mut note);
+    //     } else {
+    //         let mut note = UserData::new(sender);
+    //         if (close_res.positive) {
+    //             note.profit = close_res.pnl;
+    //         } else {
+    //             note.loss = close_res.pnl;
+    //         }
+    //         storage.users.at(sender).initialize(&mut note, Option::some(sender));
+    //     }
+    //     storage.positions.at(AztecAddress::new(sender)).remove(position_id)
+    // }
 
     // ---------------------------------------- PUBLIC -----------------------------------------------
     #[aztec(public)]
@@ -166,7 +206,7 @@ contract Vault {
         assert ((pos_type == 0) | (pos_type == 1)); // position type should be long (0) or short (1)
 
         let sender = context.msg_sender();
-        let mut note = construct_position(
+        let mut note = construct_position( // TODO: replace unconstrained
             id,
             collateral,
             market_id,
@@ -179,12 +219,6 @@ contract Vault {
         storage.pendingRequests.insert_from_public(&mut note);
         1
     }
-
-
-    // #[aztec(private)]
-    // fn close_position(
-
-    // )
 
     // #[aztec(public)]
     // internal fn _increase_market_oi(
@@ -303,6 +337,9 @@ contract Vault {
         storage.liquidity.read().value
     }
 
+    unconstrained fn user_data(user: Field) -> UserData {
+        storage.users.at(user).view_note()
+    }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; 12]) -> [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);

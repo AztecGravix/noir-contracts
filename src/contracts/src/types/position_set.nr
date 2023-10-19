@@ -60,6 +60,11 @@ impl PositionSet {
             let note = maybe_notes[0].unwrap_unchecked();
             self.set.remove(note);
         }
-        
+    }
+
+    pub fn get_position(self: Self, position_id: Field) -> PositionNote {
+        let options = NoteGetterOptions::new().select(0, position_id).set_limit(1);
+        let maybe_notes = self.set.get_notes(options);
+        maybe_notes[0].unwrap_unchecked()
     }
 }

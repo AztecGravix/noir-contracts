@@ -131,7 +131,7 @@ describe('ZK Contract Tests', () => {
     it('Close position',async () => {
       const vault = await getVault(owner, vaultAddress);
 
-      const tx = await vault.methods.close_position(1).send().wait();
+      const tx = await vault.methods.close_position(1, 800_000_000).send().wait();
       console.log(tx);
 
       // check position dissapeared
