@@ -122,7 +122,7 @@ contract Vault {
     }
 
     #[aztec(private)]
-    fn close_position(position_id: Field, close_price: u120) {
+    fn close_position(position_id: Field,close_price: u120) { // todo: dont trust price
         let sender = context.msg_sender();
         let position = storage.positions.at(AztecAddress::new(sender)).get_position(position_id);
         let close_res = pnl_and_liq(position, close_price); // TODO: replace unconstrained
@@ -177,6 +177,10 @@ contract Vault {
         openFeeRate: u64,
         baseSpreadRate: u64
     ) {
+        let sender = context.msg_sender();
+        let admin = storage.admin.read();
+        assert (admin.address == sender); // only admin!
+
         let market = storage.markets.at(market_id as Field);
         market.write(Market {
             totalLongs: 0,
