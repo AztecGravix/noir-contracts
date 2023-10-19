@@ -85,54 +85,6 @@ contract Vault {
         context.call_public_function(context.this_address(), selector, [admin.address, liquidity]);
     }
 
-    #[aztec(public)]
-    fn add_market(
-        market_id: u8,
-        maxTotalLongs: u120,
-        maxTotalShorts: u120,
-        maxLeverage: u32,
-        openFeeRate: u64,
-        baseSpreadRate: u64
-    ) {
-        let market = storage.markets.at(market_id as Field);
-        market.write(Market {
-            totalLongs: 0,
-            totalShorts: 0,
-            maxTotalLongs: maxTotalLongs,
-            maxTotalShorts: maxTotalShorts,
-            maxLeverage: maxLeverage,
-            openFeeRate: openFeeRate,
-            baseSpreadRate: baseSpreadRate
-        });
-        1
-    }
-
-
-    #[aztec(public)]
-    fn open_position(
-        id: u32,
-        collateral: u120,
-        leverage: u32,
-        pos_type: u8,
-        market_id: u8,
-        market_price: u120, // todo: check authorized signature with price
-        secret_hash: Field
-    ) {
-        // TODO: check market exists and other checks
-        let sender = context.msg_sender();
-        let mut note = construct_position(
-            id,
-            collateral,
-            market_id,
-            market_price,
-            pos_type,
-            leverage,
-            sender,
-            secret_hash
-        );
-        storage.pendingRequests.insert_from_public(&mut note);
-        1
-    }
 
     #[aztec(private)]
     fn resolve_open_position(
@@ -159,6 +111,12 @@ contract Vault {
         1
     }
 
+    #[aztec(private)]
+    fn close_position(position_id: Field) {
+        let sender = context.msg_sender();
+        storage.positions.at(AztecAddress::new(sender)).remove(position_id);
+    }
+
     // ---------------------------------------- PUBLIC -----------------------------------------------
     #[aztec(public)]
     internal fn _initialize(
@@ -169,6 +127,59 @@ contract Vault {
         let initial = SafeU120::new(initial_liquidity);
         storage.liquidity.write(initial);
     }
+
+    #[aztec(public)]
+    fn add_market(
+        market_id: u8,
+        maxTotalLongs: u120,
+        maxTotalShorts: u120,
+        maxLeverage: u32,
+        openFeeRate: u64,
+        baseSpreadRate: u64
+    ) {
+        let market = storage.markets.at(market_id as Field);
+        market.write(Market {
+            totalLongs: 0,
+            totalShorts: 0,
+            maxTotalLongs: maxTotalLongs,
+            maxTotalShorts: maxTotalShorts,
+            maxLeverage: maxLeverage,
+            openFeeRate: openFeeRate,
+            baseSpreadRate: baseSpreadRate
+        });
+        1
+    }
+
+      #[aztec(public)]
+    fn open_position(
+        id: u32,
+        collateral: u120,
+        leverage: u32,
+        pos_type: u8,
+        market_id: u8,
+        market_price: u120, // todo: check authorized signature with price
+        secret_hash: Field
+    ) {
+        let market = storage.markets.at(market_id as Field).read();
+        assert (market.maxTotalLongs > 0); // check market exists
+        assert (leverage < market.maxLeverage); // do not exceed max leverage!
+        assert ((pos_type == 0) | (pos_type == 1)); // position type should be long (0) or short (1)
+
+        let sender = context.msg_sender();
+        let mut note = construct_position(
+            id,
+            collateral,
+            market_id,
+            market_price,
+            pos_type,
+            leverage,
+            sender,
+            secret_hash
+        );
+        storage.pendingRequests.insert_from_public(&mut note);
+        1
+    }
+
 
     // #[aztec(private)]
     // fn close_position(

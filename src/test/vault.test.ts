@@ -107,7 +107,7 @@ describe('ZK Contract Tests', () => {
       console.log(secret_hash);
 
       // long position, 10$, 1 market, 1000$ market price, 10x leverage
-      await openPosAndAddNoteToPXE(owner, 1, 10_000_000, 1, 1_000_000_000, 0, 10_000_000, secret_hash);
+      await openPosAndAddNoteToPXE(owner, 1, 100_000_000, 1, 1_000_000_000, 0, 10_000_000, secret_hash);
     });
 
     it('Resolve position', async () => {
@@ -123,9 +123,20 @@ describe('ZK Contract Tests', () => {
       const vault = await getVault(owner, vaultAddress);
 
       const positions = await vault.methods.positions(owner.getAddress()).view();
-      // price dropped to 800$
+      // price dropped to 800$, we have ~20% loss
       const res = await vault.methods.pnl_and_liq(positions[0]._value, 800_000_000).view();
-      console.log(res);
+      console.log(res); 
     });
+
+    it('Close position',async () => {
+      const vault = await getVault(owner, vaultAddress);
+
+      const tx = await vault.methods.close_position(1).send().wait();
+      console.log(tx);
+
+      // check position dissapeared
+      const positions = await vault.methods.positions(owner.getAddress()).view();
+      console.log(positions[0]);
+    })
   });
 });
