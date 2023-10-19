@@ -1,5 +1,5 @@
 mod market;
-mod position;
-mod user_pos_id;
+mod position_note;
 mod safe_u120_serialization;
-mod transparent_note;
+mod position_map;
+mod position_set;

@@ -11,7 +11,7 @@ contract Vault {
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
-    
+
     use dep::aztec::{
         abi,
         log::emit_encrypted_log,
@@ -21,6 +21,7 @@ contract Vault {
         },
         note::{
             note_getter_options::NoteGetterOptions,
+            note_viewer_options::NoteViewerOptions,
             note_header::NoteHeader,
             utils as note_utils
         },
@@ -34,19 +35,16 @@ contract Vault {
     };
     use crate::types::{
         market::{MARKET_SERIALIZED_LEN, Market, MarketSerializationMethods, HUNDRED_PERCENT},
-        user_pos_id::{USER_ID_POS_SERIALIZED_LEN, UserPosId, UserPosIdSerializationMethods},
-        position::{POSITION_SERIALIZED_LEN, PositionSerializationMethods, Position, LIQUIDATION_THRESHOLD_RATE},
+        position_note::{POSITION_NOTE_SERIALIZED_LEN, PositionNoteSerializationMethods, PositionNote, LIQUIDATION_THRESHOLD_RATE},
         safe_u120_serialization::{SAFE_U120_SERIALIZED_LEN, SafeU120SerializationMethods},
-        transparent_note::{TransparentNote, TRANSPARENT_NOTE_LEN, TransparentNoteMethods}
+        position_map::{PositionMap}
     };
-
     struct Storage {
         admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
         markets: Map<PublicState<Market, MARKET_SERIALIZED_LEN>>,
         liquidity: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
-        positions: Map<Map<Singleton<Position, POSITION_SERIALIZED_LEN>>>,
-        usersLastPosId: Map<Singleton<UserPosId, USER_ID_POS_SERIALIZED_LEN>>,
-        pendingRequests: Set<TransparentNote, TRANSPARENT_NOTE_LEN>
+        positions: PositionMap,
+        pendingRequests: Set<PositionNote, POSITION_NOTE_SERIALIZED_LEN>
     }
 
     impl Storage {
@@ -74,27 +72,8 @@ contract Vault {
                     SafeU120SerializationMethods,
                 ),
                 // -------------------- PRIVATE ----------------------
-                positions: Map::new(
-                    context,
-                    4,
-                    |context, slot| {
-                        Map::new(
-                            context,
-                            slot,
-                            |context, slot| {
-                                Singleton::new(context, slot, PositionSerializationMethods)
-                            }
-                        )
-                    },
-                ),
-                usersLastPosId: Map::new(
-                    context,
-                    5,
-                    |context, slot| {
-                        Singleton::new(context, slot, UserPosIdSerializationMethods)
-                    }
-                ),
-                pendingRequests: Set::new(context, 6, TransparentNoteMethods)
+                positions: PositionMap::new(context, 4),
+                pendingRequests: Set::new(context, 5, PositionNoteSerializationMethods)
             }
         }
     }
@@ -107,16 +86,43 @@ contract Vault {
     }
 
     #[aztec(public)]
+    fn add_market(
+        market_id: u8,
+        maxTotalLongs: u120,
+        maxTotalShorts: u120,
+        maxLeverage: u32,
+        openFeeRate: u64,
+        baseSpreadRate: u64,
+        borrowBaseRatePerHour: u64
+    ) {
+        let market = storage.markets.at(market_id as Field);
+        market.write(Market {
+            totalLongs: 0,
+            totalShorts: 0,
+            maxTotalLongs: maxTotalLongs,
+            maxTotalShorts: maxTotalShorts,
+            maxLeverage: maxLeverage,
+            openFeeRate: openFeeRate,
+            baseSpreadRate: baseSpreadRate,
+            borrowBaseRatePerHour: borrowBaseRatePerHour
+        });
+        1
+    }
+
+
+    #[aztec(public)]
     fn open_position(
+        id: u32,
         collateral: u120,
         leverage: u32,
         pos_type: u8,
-        market_id: Field,
+        market_id: u8,
         market_price: u120, // todo: check authorized signature with price
         secret_hash: Field
     ) {
         // TODO: check market exists and other checks
-        let market = storage.markets.at(market_id).read();
+        let sender = context.msg_sender();
+        let market = storage.markets.at(market_id as Field).read();
         let open_fee = (collateral * market.openFeeRate as u120) / HUNDRED_PERCENT as u120;
         let mut open_price = market_price;
         if (pos_type == 0) {
@@ -130,16 +136,19 @@ contract Vault {
         }
 
         let pendingRequests = storage.pendingRequests;
-        let mut note = TransparentNote::new(
-            collateral as Field,
-            leverage as Field,
-            pos_type as Field,
-            market_id as Field,
-            market_price as Field,
-            open_price as Field,
-            open_fee as Field,
-            market.borrowBaseRatePerHour as Field,
-            context.timestamp(),
+        let mut note = PositionNote::new(
+            id,
+            market_id,
+            pos_type,
+            collateral,
+            open_fee,
+            open_price,
+            market_price,
+            leverage,
+            market.borrowBaseRatePerHour,
+            LIQUIDATION_THRESHOLD_RATE,
+            context.timestamp() as u32,
+            sender,
             secret_hash
         );
         pendingRequests.insert_from_public(&mut note);
@@ -147,100 +156,99 @@ contract Vault {
     }
 
 
-
-    #[aztec(private)]
-    fn resolve_open_position(
-        to: AztecAddress,
-        secret: Field
-    ) {
-        let pendingRequests = storage.pendingRequests;
-        let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(9, secret_hash).set_limit(1);
-        let notes = pendingRequests.get_notes(options);
-        let note = notes[0].unwrap_unchecked();
-        pendingRequests.remove(note);
+    // #[aztec(private)]
+    // fn resolve_open_position(
+    //     to: AztecAddress,
+    //     secret: Field
+    // ) {
+    //     let pendingRequests = storage.pendingRequests;
+    //     let secret_hash = compute_secret_hash(secret);
+    //     let options = NoteGetterOptions::new().select(9, secret_hash).set_limit(1);
+    //     let notes = pendingRequests.get_notes(options);
+    //     let note = notes[0].unwrap_unchecked();
+    //     pendingRequests.remove(note);
     
-        // todo: add private position
-        let mut new_pos_id = UserPosId::new((last_pos_id(to.address) + 1) as Field, to.address);
-        // first position of user
-        if (new_pos_id.value == 1) {
-            storage.usersLastPosId.at(to.address).initialize(&mut new_pos_id, Option::some(to.address));
-        } else {
-            storage.usersLastPosId.at(to.address).replace(&mut new_pos_id);
-        }
+    //     // todo: add private position
+    //     let mut new_pos_id = UserPosId::new((last_pos_id(to.address) + 1) as Field, to.address);
+    //     // first position of user
+    //     if (new_pos_id.value == 1) {
+    //         storage.usersLastPosId.at(to.address).initialize(&mut new_pos_id, Option::some(to.address));
+    //     } else {
+    //         storage.usersLastPosId.at(to.address).replace(&mut new_pos_id);
+    //     }
 
-        // todo: real values
-        let mut position = Position::new(
-            new_pos_id.value,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            // market.borrowBaseRatePerHour,
-            1000000000,
-            LIQUIDATION_THRESHOLD_RATE,
-            1,
-            to.address
-        );
+    //     // todo: real values
+    //     let mut position = Position::new(
+    //         new_pos_id.value,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         // market.borrowBaseRatePerHour,
+    //         1000000000,
+    //         LIQUIDATION_THRESHOLD_RATE,
+    //         1,
+    //         to.address
+    //     );
 
-        // save new position
-        storage.positions.at(to.address).at(new_pos_id.value as Field).initialize(&mut position, Option::some(to.address));
+    //     // save new position
+    //     storage.positions.at(to.address).at(new_pos_id.value as Field).initialize(&mut position, Option::some(to.address));
 
-        // todo: increase market OI
-        1
-    }
+    //     // todo: increase market OI
+    //     1
+    // }
 
 
-    #[aztec(private)]
-    fn resolve_open_position_test() {
-        let sender = context.msg_sender();
-        // update last pos id
-        let mut new_pos_id = UserPosId::new((last_pos_id(sender) + 1) as Field, sender);
-        // first position of user
-        if (new_pos_id.value == 1) {
-            storage.usersLastPosId.at(sender).initialize(&mut new_pos_id, Option::some(sender));
-        } else {
-            storage.usersLastPosId.at(sender).replace(&mut new_pos_id);
-        }
-        emit_encrypted_log(
-            &mut context,
-            context.this_address(),
-            storage.usersLastPosId.storage_slot,
-            get_public_key(sender),
-            new_pos_id.serialize()
-        );
+    // #[aztec(private)]
+    // fn resolve_open_position_test() {
+    //     let sender = context.msg_sender();
+    //     // update last pos id
+    //     let mut new_pos_id = UserPosId::new((last_pos_id(sender) + 1) as Field, sender);
+    //     // first position of user
+    //     if (new_pos_id.value == 1) {
+    //         storage.usersLastPosId.at(sender).initialize(&mut new_pos_id, Option::some(sender));
+    //     } else {
+    //         storage.usersLastPosId.at(sender).replace(&mut new_pos_id);
+    //     }
+    //     emit_encrypted_log(
+    //         &mut context,
+    //         context.this_address(),
+    //         storage.usersLastPosId.storage_slot,
+    //         get_public_key(sender),
+    //         new_pos_id.serialize()
+    //     );
 
-        let mut position = Position::new(
-            new_pos_id.value,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            // market.borrowBaseRatePerHour,
-            1000000000,
-            LIQUIDATION_THRESHOLD_RATE,
-            1,
-            sender
-        );
+    //     let mut position = Position::new(
+    //         new_pos_id.value,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         1,
+    //         // market.borrowBaseRatePerHour,
+    //         1000000000,
+    //         LIQUIDATION_THRESHOLD_RATE,
+    //         1,
+    //         sender
+    //     );
 
-        // save new position
-        storage.positions.at(sender).at(new_pos_id.value as Field).initialize(&mut position, Option::some(sender));
-        emit_encrypted_log(
-            &mut context,
-            context.this_address(),
-            storage.positions.storage_slot,
-            get_public_key(sender),
-            position.serialize()
-        );
+    //     // save new position
+    //     storage.positions.at(sender).at(new_pos_id.value as Field).initialize(&mut position, Option::some(sender));
+    //     emit_encrypted_log(
+    //         &mut context,
+    //         context.this_address(),
+    //         storage.positions.storage_slot,
+    //         get_public_key(sender),
+    //         position.serialize()
+    //     );
 
-        1
-    }
+    //     1
+    // }
 
     // ---------------------------------------- PUBLIC -----------------------------------------------
     #[aztec(public)]
@@ -275,37 +283,19 @@ contract Vault {
         storage.markets.at(market_id).read()
     }
 
-    unconstrained fn position(
-        user: Field,
-        pos_id: Field
-    ) -> Position {
-        storage.positions.at(user).at(pos_id).get_note()
+    unconstrained fn positions(user: Field) -> [Option<PositionNote>; 10] {
+        let options = NoteViewerOptions::new();
+        storage.positions.at(AztecAddress::new(user)).set.view_notes(options)
     }
 
     unconstrained fn liquidity() -> u120 {
         storage.liquidity.read().value
     }
 
-    unconstrained fn last_pos_id(
-        user: Field
-    ) -> u32 {
-        let has_positions = storage.usersLastPosId.at(user).is_initialized(Option::some(user));
-        if (has_positions) {
-            storage.usersLastPosId.at(user).get_note().value
-        } else {
-            0
-        }
-    }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; 12]) -> [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 4) {
-            note_utils::compute_note_hash_and_nullifier(PositionSerializationMethods, note_header, preimage)
-        } else if (storage_slot == 5) {
-            note_utils::compute_note_hash_and_nullifier(UserPosIdSerializationMethods, note_header, preimage)
-        } else {
-            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
-        }
+        note_utils::compute_note_hash_and_nullifier(PositionNoteSerializationMethods, note_header, preimage)
     }
 }
 

@@ -1,4 +1,4 @@
-import {VaultContract, VaultContractArtifact} from '../artifacts/Vault.js'
+import {VaultContract} from '../artifacts/Vault.js'
 import {
   AccountWallet,
   AccountWalletWithPrivateKey,
@@ -50,53 +50,23 @@ describe('ZK Contract Tests', () => {
   });
 
   describe('Test', async() => {
-    it('Call succeeds after deploy', async () => {
+    it('Add market', async () => {
       const vault = await getVault(owner, vaultAddress);
-      const res = await vault.methods.market(1).view();
-      console.log(res);
+      await vault.methods.add_market(1, 10_000_000, 10_000_000, 50_000_000, 10_000_000_000, 1_000_000_000, 1_000_000_000).send().wait();
 
-      const res2 = await vault.methods.last_pos_id(owner.getAddress()).view();
-      console.log(res2);
+      const market = await vault.methods.market(1).view();
+      console.log(market);
     });
 
-    it('Open position',async () => {
+    it('Open position (request)',async () => {
       const vault = await getVault(owner, vaultAddress);
-      // const tx = await vault.methods.open_position(
-      //   1000000,
-      //   1000000,
-      //   0,
-      //   1,
-      //   2000000,
-      //   123123
-      // ).send();
 
-      const tx = await vault.methods.resolve_open_position_test().send();
+      const tx = await vault.methods.open_position(
+        1, 2, 3, 0, 5, 6, 7
+      ).send().wait();
 
-      console.log(`Sent transfer transaction ${await tx.getTxHash()}`);
-      const receipt = await tx.wait();
-      console.log(`Transaction has been mined on block ${receipt.blockNumber}, ${receipt.error}, ${receipt.status}`);
-    });
-
-    it('Check getters',async () => {
-      const vault = await getVault(owner, vaultAddress);
-      const res = await vault.methods.last_pos_id(owner.getAddress()).view();
-      console.log(res);
-
-      const pos = await vault.methods.position(owner.getAddress(), 1).view();
-      console.log(pos);
+      const positions = await vault.methods.positions(owner.getAddress()).view();
+      console.log(positions);
     });
   });
 });
-
-// {
-//   totalLongs: 0n,
-//     totalShorts: 0n,
-//   maxTotalLongs: 0n,
-//   maxTotalShorts: 0n,
-//   maxLeverage: 0n,
-//   openFeeRate: 0n,
-//   baseSpreadRate: 0n,
-//   borrowBaseRatePerHour: 0n
-// }
-
-
