@@ -10,6 +10,11 @@ use dep::aztec::note::{
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 use dep::aztec::hash::{compute_secret_hash};
 
+struct PnlAndLiq {
+    pnl: u120,
+    positive: bool,
+    liqPrice: u120
+}
 
 struct PositionNote {
     id: u32,
@@ -33,6 +38,8 @@ struct PositionNote {
 
 global POSITION_NOTE_SERIALIZED_LEN: Field = 11;
 global LIQUIDATION_THRESHOLD_RATE: u64 = 100000000000; // 10%
+global LEVERAGE_BASE: u120 = 1000000;
+global SCALING_FACTOR: u120 = 1000000000000000000; // 10*18, used in division to prevent precision loss
 
 
 impl PositionNote {

@@ -83,8 +83,8 @@ export class VaultContract extends ContractBase {
     /** _initialize(new_admin: struct, initial_liquidity: field) */
     _initialize: ((new_admin: AztecAddressLike, initial_liquidity: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** add_market(market_id: integer, maxTotalLongs: integer, maxTotalShorts: integer, maxLeverage: integer, openFeeRate: integer, baseSpreadRate: integer, borrowBaseRatePerHour: integer) */
-    add_market: ((market_id: (bigint | number), maxTotalLongs: (bigint | number), maxTotalShorts: (bigint | number), maxLeverage: (bigint | number), openFeeRate: (bigint | number), baseSpreadRate: (bigint | number), borrowBaseRatePerHour: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** add_market(market_id: integer, maxTotalLongs: integer, maxTotalShorts: integer, maxLeverage: integer, openFeeRate: integer, baseSpreadRate: integer) */
+    add_market: ((market_id: (bigint | number), maxTotalLongs: (bigint | number), maxTotalShorts: (bigint | number), maxLeverage: (bigint | number), openFeeRate: (bigint | number), baseSpreadRate: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** admin() */
     admin: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -106,6 +106,9 @@ export class VaultContract extends ContractBase {
 
     /** pending_positions() */
     pending_positions: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** pnl_and_liq(note: struct, close_price: integer) */
+    pnl_and_liq: ((note: { id: (bigint | number), marketIdx: (bigint | number), posType: (bigint | number), initialCollateral: (bigint | number), openFee: (bigint | number), openPrice: (bigint | number), markPrice: (bigint | number), leverage: (bigint | number), liquidationThresholdRate: (bigint | number), owner: FieldLike, secret_hash: FieldLike, secret: FieldLike, header: { contract_address: FieldLike, nonce: FieldLike, storage_slot: FieldLike, is_transient: boolean } }, close_price: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** positions(user: field) */
     positions: ((user: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

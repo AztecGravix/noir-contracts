@@ -7,11 +7,10 @@ struct Market {
     maxTotalShorts: u120,
     maxLeverage: u32,
     openFeeRate: u64,
-    baseSpreadRate: u64,
-    borrowBaseRatePerHour: u64
+    baseSpreadRate: u64
 }
 
-global MARKET_SERIALIZED_LEN: Field = 8;
+global MARKET_SERIALIZED_LEN: Field = 7;
 global HUNDRED_PERCENT: u64 = 1000000000000;
 
 
@@ -23,8 +22,7 @@ fn deserialize(fields: [Field; MARKET_SERIALIZED_LEN]) -> Market {
         maxTotalShorts: fields[3] as u120,
         maxLeverage: fields[4] as u32,
         openFeeRate: fields[5] as u64,
-        baseSpreadRate: fields[6] as u64,
-        borrowBaseRatePerHour: fields[7] as u64
+        baseSpreadRate: fields[6] as u64
     }
 }
 
@@ -36,8 +34,7 @@ fn serialize(market: Market) -> [Field; MARKET_SERIALIZED_LEN] {
         market.maxTotalShorts as Field,
         market.maxLeverage as Field,
         market.openFeeRate as Field,
-        market.baseSpreadRate as Field,
-        market.borrowBaseRatePerHour as Field,
+        market.baseSpreadRate as Field
     ]
 }
 

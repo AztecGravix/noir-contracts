@@ -35,7 +35,7 @@ contract Vault {
     };
     use crate::types::{
         market::{MARKET_SERIALIZED_LEN, Market, MarketSerializationMethods, HUNDRED_PERCENT},
-        position_note::{POSITION_NOTE_SERIALIZED_LEN, PositionNoteSerializationMethods, PositionNote, LIQUIDATION_THRESHOLD_RATE},
+        position_note::{POSITION_NOTE_SERIALIZED_LEN, PositionNoteSerializationMethods, PositionNote, LIQUIDATION_THRESHOLD_RATE, LEVERAGE_BASE, SCALING_FACTOR, PnlAndLiq},
         safe_u120_serialization::{SAFE_U120_SERIALIZED_LEN, SafeU120SerializationMethods},
         position_map::{PositionMap}
     };
@@ -92,8 +92,7 @@ contract Vault {
         maxTotalShorts: u120,
         maxLeverage: u32,
         openFeeRate: u64,
-        baseSpreadRate: u64,
-        borrowBaseRatePerHour: u64
+        baseSpreadRate: u64
     ) {
         let market = storage.markets.at(market_id as Field);
         market.write(Market {
@@ -103,8 +102,7 @@ contract Vault {
             maxTotalShorts: maxTotalShorts,
             maxLeverage: maxLeverage,
             openFeeRate: openFeeRate,
-            baseSpreadRate: baseSpreadRate,
-            borrowBaseRatePerHour: borrowBaseRatePerHour
+            baseSpreadRate: baseSpreadRate
         });
         1
     }
@@ -243,14 +241,51 @@ contract Vault {
         storage.pendingRequests.view_notes(options)
     }
 
-    // unconstrained fn pending_position(secret_hash: Field) -> [Option<PositionNote>; 10] {
-    //     let options = NoteViewerOptions::new().select(10, secret_hash).set_limit(1);
-    //     storage.pendingRequests.view_notes(options)
-    // }
-
     unconstrained fn positions(user: Field) -> [Option<PositionNote>; 10] {
         let options = NoteViewerOptions::new();
         storage.positions.at(AztecAddress::new(user)).set.view_notes(options)
+    }
+
+    // return pnl, pnl sign, liq price
+    unconstrained fn pnl_and_liq(note: PositionNote, close_price: u120) -> PnlAndLiq {
+        let collateral = note.initialCollateral - note.openFee;
+        let leveraged_pos = (collateral * LEVERAGE_BASE) / note.leverage as u120;
+
+        let mut pnl = 0;
+        let mut positive: bool = true; // noir does not support signed integers, so we will idicate sign with var. 0 - positive, 1 - negative 
+        if (close_price <= note.openPrice) {
+            pnl = SCALING_FACTOR - (close_price * SCALING_FACTOR) / note.openPrice;
+            positive = false;
+        } else {
+            pnl = (close_price * SCALING_FACTOR) / note.openPrice - SCALING_FACTOR;
+            positive = true;
+        }
+        // short
+        if (note.posType == 1) {
+            positive = !positive;
+        }
+        pnl = pnl * leveraged_pos / SCALING_FACTOR;
+
+        let mut liq_price_dist = collateral * (HUNDRED_PERCENT - LIQUIDATION_THRESHOLD_RATE) as u120 / HUNDRED_PERCENT as u120;
+        liq_price_dist = note.openPrice * liq_price_dist / leveraged_pos;
+
+        let mut liq_price = 0;
+        // long
+        if (note.posType == 0) {
+            if (positive) {
+                liq_price = note.openPrice - liq_price_dist;
+            } else {
+                liq_price = note.openPrice + liq_price_dist;
+            }
+        } else {
+            if (positive) {
+                liq_price = note.openPrice + liq_price_dist;
+            } else {
+                liq_price = note.openPrice - liq_price_dist;
+            }
+        }
+
+        PnlAndLiq { pnl: pnl, positive: positive, liqPrice: liq_price }
     }
 
     unconstrained fn liquidity() -> u120 {

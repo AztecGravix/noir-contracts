@@ -1,17 +1,11 @@
 import {VaultContract} from '../artifacts/Vault.js'
 import {
-  AccountWallet,
   AccountWalletWithPrivateKey,
   AztecAddress,
-  CompleteAddress,
-  Contract,
   createPXEClient,
   Fr, getSandboxAccountsWallets,
   PXE,
-  TxStatus,
   waitForSandbox,
-  Wallet,
-  TxHash,
   NotePreimage,
   computeMessageSecretHash
 } from '@aztec/aztec.js'
@@ -33,7 +27,7 @@ describe('ZK Contract Tests', () => {
   let contractAddress: AztecAddress
   let pxe: PXE;
 
-  async function openPosAndAddPendingShieldNoteToPXE(
+  async function openPosAndAddNoteToPXE(
     wallet: AccountWalletWithPrivateKey,
     id: number,
     collateral: number,
@@ -101,7 +95,7 @@ describe('ZK Contract Tests', () => {
 
     it('Add market', async () => {
       const vault = await getVault(owner, vaultAddress);
-      const tx = await vault.methods.add_market(1, 10_000_000, 10_000_000, 50_000_000, 10_000_000_000, 1_000_000_000, 1_000_000_000).send().wait();
+      const tx = await vault.methods.add_market(1, 10_000_000, 10_000_000, 50_000_000, 10_000_000_000, 1_000_000_000).send().wait();
       console.log(tx);
 
       const market = await vault.methods.market(1).view();
@@ -109,32 +103,29 @@ describe('ZK Contract Tests', () => {
     });
 
     it('Open position (request)',async () => {
-      const vault = await getVault(owner, vaultAddress);
-
       const secret_hash = await computeMessageSecretHash(secret);
       console.log(secret_hash);
 
-      await openPosAndAddPendingShieldNoteToPXE(owner, 1, 100, 1, 100, 0, 10, secret_hash);
-
-      // const positions = await vault.methods.pending_positions().view();
-      // console.log(positions);
+      // long position, 10$, 1 market, 1000$ market price, 10x leverage
+      await openPosAndAddNoteToPXE(owner, 1, 10_000_000, 1, 1_000_000_000, 0, 10_000_000, secret_hash);
     });
 
     it('Resolve position', async () => {
       const vault = await getVault(owner, vaultAddress);
-
-      // const secret_hash = await computeMessageSecretHash(secret);
-      // const www = await vault.methods.pending_position(secret_hash).view();
-      // console.log(www[0]);
-
-      // const qqq = await vault.methods.view_pending_note(secret);
-      // console.log(qqq);
-
       const tx = await vault.methods.resolve_open_position(secret).send().wait();
       console.log(tx);
 
       const positions = await vault.methods.positions(owner.getAddress()).view();
       console.log(positions[0]);
+    });
+
+    it('Check position pnl and liquidation price', async() => {
+      const vault = await getVault(owner, vaultAddress);
+
+      const positions = await vault.methods.positions(owner.getAddress()).view();
+      // price dropped to 800$
+      const res = await vault.methods.pnl_and_liq(positions[0]._value, 800_000_000).view();
+      console.log(res);
     });
   });
 });
