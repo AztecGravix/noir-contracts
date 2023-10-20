@@ -298,7 +298,7 @@ contract Vault {
     // return pnl, pnl sign, liq price
     unconstrained fn pnl_and_liq(note: PositionNote, close_price: u120) -> PnlAndLiq {
         let collateral = note.initialCollateral - note.openFee;
-        let leveraged_pos = (collateral * LEVERAGE_BASE) / note.leverage as u120;
+        let leveraged_pos = (collateral * note.leverage as u120) / LEVERAGE_BASE as u120;
 
         let mut pnl = 0;
         let mut positive: bool = true; // noir does not support signed integers, so we will idicate sign with var. 0 - positive, 1 - negative 
@@ -321,17 +321,12 @@ contract Vault {
         let mut liq_price = 0;
         // long
         if (note.posType == 0) {
-            if (positive) {
+            liq_price = 0;
+            if (note.openPrice >= liq_price_dist) {
                 liq_price = note.openPrice - liq_price_dist;
-            } else {
-                liq_price = note.openPrice + liq_price_dist;
             }
         } else {
-            if (positive) {
-                liq_price = note.openPrice + liq_price_dist;
-            } else {
-                liq_price = note.openPrice - liq_price_dist;
-            }
+            liq_price = note.openPrice + liq_price_dist;
         }
 
         PnlAndLiq { pnl: pnl, positive: positive, liqPrice: liq_price }
