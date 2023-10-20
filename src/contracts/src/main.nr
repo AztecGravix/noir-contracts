@@ -206,7 +206,7 @@ contract Vault {
     ) {
         let market = storage.markets.at(market_id as Field).read();
         assert (market.maxTotalLongs > 0); // check market exists
-        assert (leverage < market.maxLeverage); // do not exceed max leverage!
+        assert (leverage <= market.maxLeverage); // do not exceed max leverage!
         assert ((pos_type == 0) | (pos_type == 1)); // position type should be long (0) or short (1)
 
         let sender = context.msg_sender();

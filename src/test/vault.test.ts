@@ -12,7 +12,7 @@ import {
 import {createDebugLogger} from '@aztec/foundation/log'
 
 const setupSandbox = async () => {
-  const { PXE_URL = 'http://localhost:8080' } = process.env
+  const { PXE_URL = 'http://167.99.212.95:8080' } = process.env
   const pxe = createPXEClient(PXE_URL)
   await waitForSandbox(pxe)
   return pxe
@@ -95,7 +95,10 @@ describe('ZK Contract Tests', () => {
 
     it('Add market', async () => {
       const vault = await getVault(owner, vaultAddress);
-      const tx = await vault.methods.add_market(1, 10_000_000, 10_000_000, 50_000_000, 10_000_000_000, 1_000_000_000).send().wait();
+      const tx = await vault.methods.add_market(1, 100_000_000_000, 100_000_000_000, 50_000_000, 10_000_000_000, 1_000_000_000).send().wait();
+      await vault.methods.add_market(2, 100_000_000_000, 100_000_000_000, 50_000_000, 10_000_000_000, 1_000_000_000).send().wait();
+      await vault.methods.add_market(3, 100_000_000_000, 100_000_000_000, 50_000_000, 10_000_000_000, 1_000_000_000).send().wait();
+
       console.log(tx);
 
       const market = await vault.methods.market(1).view();
